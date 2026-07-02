@@ -1,0 +1,9 @@
+{
+  "name": "codex-adapter",
+  "version": "1.0.1",
+  "description": "Call OpenAI Codex (gpt-5.x) from Claude Code via `codex exec`. Concurrent by design — no broker, no single-instance lock.",
+  "author": {
+    "name": "PavanMV",
+    "email": "mvpavan42@gmail.com"
+  }
+}

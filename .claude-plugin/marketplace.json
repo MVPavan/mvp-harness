@@ -1,0 +1,44 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "mvp-harness",
+  "owner": {
+    "name": "PavanMV",
+    "email": "mvpavan42@gmail.com"
+  },
+  "metadata": {
+    "description": "PavanMV's agent-harness plugins: mvp-plugin (repo adoption), code-intel (graph-first code intelligence), and codex-adapter (OpenAI Codex from Claude Code).",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "mvp-plugin",
+      "source": "./plugins/mvp-plugin",
+      "description": "Run /mvp-plugin:adopt to copy the self-contained agent harness into any repo: rules, skills, agents, hooks, CLAUDE.md/AGENTS.md, and beads tracking. /mvp-plugin:doctor verifies wiring; /mvp-plugin:update re-syncs the core.",
+      "version": "0.1.0",
+      "author": {
+        "name": "PavanMV",
+        "email": "mvpavan42@gmail.com"
+      }
+    },
+    {
+      "name": "code-intel",
+      "source": "./plugins/code-intel",
+      "description": "Graph-first code intelligence: serena & CBM MCP servers + ast-grep, with a graph-first workflow skill and indexing commands. Query the symbol graph before reading files to cut tokens on large repos.",
+      "version": "0.1.0",
+      "author": {
+        "name": "PavanMV",
+        "email": "mvpavan42@gmail.com"
+      }
+    },
+    {
+      "name": "codex-adapter",
+      "source": "./plugins/codex-adapter",
+      "description": "Call OpenAI Codex (gpt-5.x) from Claude Code via `codex exec`. Roles, free-form delegation, true concurrency, no broker or single-instance lock.",
+      "version": "1.0.1",
+      "author": {
+        "name": "PavanMV",
+        "email": "mvpavan42@gmail.com"
+      }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# code-intel launcher: CBM (codebase-memory-mcp) — auto-sync knowledge graph
+# + local semantic search. Pure resolver passthrough.
+#   no args      -> runs the MCP server on stdio (used by ../.mcp.json)
+#   cli <tool>   -> headless single-tool query (used by commands/hooks)
+# Override binary location with CODE_INTEL_CBM_BIN; otherwise found on PATH.
+set -euo pipefail
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/resolve.sh
+. "$SELF_DIR/../lib/resolve.sh"
+BIN="$(resolve_bin codebase-memory-mcp "${CODE_INTEL_CBM_BIN:-}" "$SELF_DIR")"
+exec "$BIN" "$@"

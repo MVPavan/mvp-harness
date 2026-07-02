@@ -1,0 +1,7 @@
+# OS / editor noise
+.DS_Store
+*.swp
+*~
+
+# Stray local logs (the test suite writes to /tmp, not here)
+*.log

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# code-intel launcher: serena (LSP navigation + symbol-level editing).
+# Pure resolver passthrough — launch args live in ../.mcp.json.
+# Override binary location with CODE_INTEL_SERENA_BIN; otherwise found on PATH.
+set -euo pipefail
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/resolve.sh
+. "$SELF_DIR/../lib/resolve.sh"
+BIN="$(resolve_bin serena "${CODE_INTEL_SERENA_BIN:-}" "$SELF_DIR")"
+exec "$BIN" "$@"

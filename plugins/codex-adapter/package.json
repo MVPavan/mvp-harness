@@ -1,0 +1,14 @@
+{
+  "name": "codex-adapter",
+  "version": "0.1.0",
+  "description": "Call OpenAI Codex from Claude Code via `codex exec`.",
+  "type": "module",
+  "bin": {
+    "codex-run": "scripts/codex-run.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "private": true
+}

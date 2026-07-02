@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# code-intel launcher: ast-grep (structural search / rewrite / lint-rules).
+# Pure resolver passthrough; all args forwarded to the real ast-grep.
+# Override binary location with CODE_INTEL_ASTGREP_BIN; otherwise found on PATH
+# (this shim's own dir is skipped, so it never resolves to itself).
+# NOTE: the system `sg` is newgrp, not ast-grep — always invoke as `ast-grep`.
+set -euo pipefail
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/resolve.sh
+. "$SELF_DIR/../lib/resolve.sh"
+BIN="$(resolve_bin ast-grep "${CODE_INTEL_ASTGREP_BIN:-}" "$SELF_DIR")"
+exec "$BIN" "$@"

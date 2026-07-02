@@ -1,0 +1,9 @@
+{
+  "name": "code-intel",
+  "version": "0.1.0",
+  "description": "Graph-first code intelligence for large codebases — serena (LSP navigation + symbol-level edits) and CBM (auto-sync knowledge graph + local semantic search) as MCP servers, plus ast-grep for structural search/rewrite. Binaries are located at runtime via env vars / PATH; no machine-local paths are committed.",
+  "author": {
+    "name": "PavanMV",
+    "email": "mvpavan42@gmail.com"
+  }
+}

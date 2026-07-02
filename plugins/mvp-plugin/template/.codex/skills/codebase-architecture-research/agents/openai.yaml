@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codebase Architecture Research"
+  short_description: "Map codebases into agent and review reports"
+  default_prompt: "Use $codebase-architecture-research to study external/<name> and write agent Markdown plus HTML review reports."

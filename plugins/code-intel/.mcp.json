@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "serena": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/serena",
+      "args": [
+        "start-mcp-server",
+        "--transport", "stdio",
+        "--context", "claude-code",
+        "--project", "${CLAUDE_PROJECT_DIR}",
+        "--enable-web-dashboard", "false",
+        "--open-web-dashboard", "false",
+        "--enable-gui-log-window", "false"
+      ]
+    },
+    "codebase-memory": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/cbm",
+      "args": []
+    }
+  }
+}
