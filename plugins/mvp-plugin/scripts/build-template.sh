@@ -116,3 +116,13 @@ n_claude=$(find "$TPL/.claude" -type f 2>/dev/null | wc -l | tr -d ' ')
 n_codex=$(find "$TPL/.codex" -type f 2>/dev/null | wc -l | tr -d ' ')
 printf '#### template/ regenerated: %s files under .claude, %s under .codex, plus CLAUDE.md/AGENTS.md/.beads/beads.md\n' "$n_claude" "$n_codex"
 printf 'OK: no project/machine-specific strings in payload.\n'
+
+# 8. Advisory drift check between the two payload trees. Never fails the build —
+#    it just surfaces shared files that have drifted apart since last accepted.
+printf '\n'
+if bash "$SCRIPT_DIR/check-sync.sh" check; then
+  :
+else
+  printf 'WARN: shared .claude/.codex content has drifted (see above). Reconcile in the\n' >&2
+  printf '      source harness, re-run build-template, then: bash scripts/check-sync.sh accept\n' >&2
+fi

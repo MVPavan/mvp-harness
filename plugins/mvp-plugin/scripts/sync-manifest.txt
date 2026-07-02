@@ -1,0 +1,59 @@
+# sync-manifest — how check-sync.sh reconciles template/.claude vs template/.codex.
+#
+# The two harness trees share most content but diverge by design in some places
+# (file format, provider-specific wiring, provider-only skills). This file
+# declares those INTENTIONAL divergences so the drift report stays low-noise:
+# it flags only genuine drift, never the permanent by-design differences.
+#
+# Paths are RELATIVE to each tree root (no .claude/ or .codex/ prefix).
+# The LEFT column is always the .claude path; the RIGHT column the .codex path.
+#
+# Directives:
+#   body   <claude-rel> <codex-rel>   compare file bodies (after path normalization).
+#                                     Only needed when the relative paths differ;
+#                                     same-path files in both trees auto-pair as body.
+#   pair   <claude-rel> <codex-rel>   both must exist; format differs, so no body diff.
+#   claude <rel-or-prefix/>           intentionally Claude-only; do not flag.
+#   codex  <rel-or-prefix/>           intentionally Codex-only; do not flag.
+#
+# A trailing slash means "directory prefix" (matches everything under it).
+# Any same-relative-path file present in BOTH trees and not listed here is
+# auto-compared by body. Any file present in only one tree and not allowlisted
+# here is reported as structural drift.
+
+# --- Format-divergent: agents are Markdown+frontmatter in Claude, TOML in Codex.
+pair  agents/claude-max.md       agents/claude-max.toml
+pair  agents/code-reviewer.md    agents/code-reviewer.toml
+pair  agents/docs-researcher.md  agents/docs-researcher.toml
+pair  agents/fable-max.md        agents/fable-max.toml
+pair  agents/fable-xhigh.md      agents/fable-xhigh.toml
+pair  agents/implementer.md      agents/implementer.toml
+pair  agents/planner.md          agents/planner.toml
+pair  agents/spec-reviewer.md    agents/spec-reviewer.toml
+
+# --- Format-divergent: generated-edit guard is bash in Claude, Python in Codex.
+pair  hooks/block-generated-edits.sh  hooks/block-generated-edits.py
+
+# --- Structural map: a Claude slash command becomes a Codex skill.
+pair  commands/adopt.md            skills/adopt/SKILL.md
+pair  commands/check-invariants.md skills/check-invariants/SKILL.md
+pair  commands/prepare-phases.md   skills/prepare-phases/SKILL.md
+pair  commands/run-phases.md       skills/run-phases/SKILL.md
+pair  commands/use-codex.md        skills/use-codex/SKILL.md
+
+# --- Same skill, but the SKILL file casing differs (.MD vs .md): compare bodies.
+body  skills/ak-guide/SKILL.MD  skills/ak-guide/SKILL.md
+
+# --- Claude-only: Codex expresses this wiring through config.toml + hooks.json.
+claude  settings.json
+
+# --- Codex-only: provider-native packaging, docs, and skills with no Claude twin.
+codex  README.md
+codex  commands/README.md
+codex  config.toml
+codex  hooks.json
+codex  rules/default.rules
+codex  docs/codex-migration-notes.md
+codex  skills/codebase-architecture-research/
+codex  skills/deep-research/
+codex  skills/migrate-claude-to-codex/

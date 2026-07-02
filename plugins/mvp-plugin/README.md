@@ -71,7 +71,8 @@ keep the filled overlay). `/mvp-plugin:doctor` runs [`scripts/doctor.sh`](script
 .claude-plugin/{plugin.json, marketplace.json}   # marketplace = mvp-plugin + codex-adapter
 commands/        adopt.md  doctor.md  update.md   # /mvp-plugin:* (the only global surface)
 skills/harness-adopt/SKILL.md                     # overlay adaptation (judgement half)
-scripts/         install-harness.sh  doctor.sh  build-template.sh  lib/common.sh  overrides/
+scripts/         install-harness.sh  doctor.sh  build-template.sh  check-sync.sh  lib/common.sh  overrides/
+                 sync-manifest.txt  sync-baseline.txt               # drift check: intentional divergences + accepted state
 template/        CLAUDE.md  AGENTS.md  .claude/…  .codex/…  .beads/beads.md   # the payload (inert data)
 vendor/codex-adapter/                             # bundled co-plugin (vendored source)
 test/            Dockerfile  run-tests.sh  from-zero.sh  README.md
@@ -95,6 +96,30 @@ swaps in genericised Python rules from `scripts/overrides/`, genericises the few
 project-specific lines (submodule names, "no first-party source tree"), strips
 machine-local paths and example project tokens, and **fails loudly** if any
 project/machine-specific string leaks into the payload.
+
+### Keeping `.claude` and `.codex` in sync
+
+The two payload trees are maintained by hand — `.codex` is **not** generated from
+`.claude` (they diverge by design: TOML vs Markdown agents, a Python vs bash hook,
+`$use-codex` wiring, Codex-only skills). So when you change a *shared* file you
+edit both sides, and the risk is forgetting one. `check-sync.sh` catches that:
+
+```bash
+bash scripts/check-sync.sh          # report drift between the two trees (exit 1 if any)
+bash scripts/check-sync.sh accept   # record current state as accepted (after reconciling)
+```
+
+It reports two kinds of drift: **structural** (a file present on one side with no
+counterpart and not allowlisted) and **one-sided** (a shared file changed on one
+side only since the last `accept`). Intentional divergences are declared in
+[`scripts/sync-manifest.txt`](scripts/sync-manifest.txt); the accepted state of
+every body-compared pair is recorded in `scripts/sync-baseline.txt`, so the report
+shows only *new* drift, never the permanent by-design differences. `build-template.sh`
+runs this check automatically (advisory — it warns but never fails the build).
+
+Workflow when it flags drift: reconcile in the source harness, re-run
+`build-template.sh`, then `bash scripts/check-sync.sh accept` to re-baseline. When
+you *intentionally* diverge a shared file, add it to the manifest instead.
 
 ## Testing
 
