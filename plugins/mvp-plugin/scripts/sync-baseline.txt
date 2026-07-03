@@ -3,7 +3,7 @@
 B skills/ak-guide/SKILL.MD|skills/ak-guide/SKILL.md 92d4c3fd4bae042b991de8c2c5bab0408e3ae857 68eeb68c8513f50e4bab8493439ba7336df78f00
 B docs/beads-issue-tracking-adoption.md|docs/beads-issue-tracking-adoption.md c84435d24d8eafe654bb84509d06cc5a8b907693 c84435d24d8eafe654bb84509d06cc5a8b907693
 B docs/codex-discussions.md|docs/codex-discussions.md 7bfdc13223063b70ebc62d869df2c141bd2b420a 7bfdc13223063b70ebc62d869df2c141bd2b420a
-B docs/codex-usage-guide.md|docs/codex-usage-guide.md 450528aebd4249b5d7ff403881cb63f6ca456a7b 6e710386783108ed1ee05ca8429a5285cd77a88d
+B docs/codex-usage-guide.md|docs/codex-usage-guide.md 450528aebd4249b5d7ff403881cb63f6ca456a7b 20eb94799bd16dc6e3babb4d94442c8e4a648931
 B docs/mlflow-experiment-tracking-adoption.md|docs/mlflow-experiment-tracking-adoption.md 1906fb596a88fb621512d9ff8c9fc63bdf758c75 1906fb596a88fb621512d9ff8c9fc63bdf758c75
 B hooks/bd-prime.sh|hooks/bd-prime.sh 57bd97a683b086ec8e7d4b263f7f2eafbd67587b 58ee2d727d6bf17d2738908c3af43c1e61e03316
 B hooks/block-dangerous-commands.sh|hooks/block-dangerous-commands.sh 6cae49e24dc786b545ec062aacc3c8aa87fe513b 6cae49e24dc786b545ec062aacc3c8aa87fe513b
@@ -18,7 +18,7 @@ B skills/brainstorming/SKILL.md|skills/brainstorming/SKILL.md ffa36d5ac512c508e9
 B skills/cost-estimate/SKILL.md|skills/cost-estimate/SKILL.md 6d29ad24903609b3fa6666224e44de08de479982 63692ac6682e4ad3e8786ed9e737e605c00fc3a7
 B skills/cost-estimate/references/output-template.md|skills/cost-estimate/references/output-template.md f6d98c4cbfb8facde2834372c00be3daa73d0ff6 7426463c045d9b905b5bf58802b2feaa39f9b72b
 B skills/cost-estimate/references/rates-and-multipliers.md|skills/cost-estimate/references/rates-and-multipliers.md b8cc9fa48d9473349ab6b102b90fd6f29c5f61b7 b8cc9fa48d9473349ab6b102b90fd6f29c5f61b7
-B skills/design-evolve/SKILL.md|skills/design-evolve/SKILL.md 33aadcb0ac257bb9ed0fa63ae4542c97c6ac719f 33aadcb0ac257bb9ed0fa63ae4542c97c6ac719f
+B skills/design-evolve/SKILL.md|skills/design-evolve/SKILL.md 09a84ca59e0b1be0f24a1fdb5a062785754b27e3 09a84ca59e0b1be0f24a1fdb5a062785754b27e3
 B skills/document-review/SKILL.md|skills/document-review/SKILL.md 3de7b26d49ace0b70b822c15fd8afb817ba570bf 1539e116a88a59338c4b01fcf5380d9a6517cd67
 B skills/grill-me/SKILL.md|skills/grill-me/SKILL.md 5cec9e1344c8ba802c41ba13c65c5039714fb3c9 5cec9e1344c8ba802c41ba13c65c5039714fb3c9
 B skills/grill-me/references/decision-summary-template.md|skills/grill-me/references/decision-summary-template.md 49fc7a45b90bc5b2cd401747bbcb5cb4f0d15a7e 6c10b9e4f5a79143337f5f0913cc7e946917632b

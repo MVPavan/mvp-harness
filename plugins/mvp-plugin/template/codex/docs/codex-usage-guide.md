@@ -425,7 +425,7 @@ Returns: facts, recommendation, tradeoffs, open questions.
 
 ## Using Codex with the project Skills
 
-**`bodha-memory-eval` cross-validation** — multi-model diversity (Opus + GPT-5.4 agree → high confidence):
+**`<eval-harness>` cross-validation** — multi-model diversity (Opus + GPT-5.4 agree → high confidence):
 ```
 /codex:rescue --effort high --wait Review these scenario evaluation findings for accuracy.
 Check whether cited design doc sections actually support the claims.

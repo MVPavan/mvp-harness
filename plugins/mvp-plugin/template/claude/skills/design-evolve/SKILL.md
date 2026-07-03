@@ -192,7 +192,7 @@ For each checklist item:
 - **Version headers:** Update version number, date, and status in every file header.
 - **Version notes that describe deltas:** If the source says "v2.5 adds X" or "New in v2.5: Y" — rewrite so X and Y are described as current facts, not as additions. The version history table is the one exception where referencing prior versions is correct.
 - **Invariants and design decisions:** Preserve all unless a discussion explicitly supersedes one. When superseding, use the same numbering/naming style and note the new decision.
-- **Cross-references:** Update filenames in cross-references to the new version (e.g., `bodha-chitta-v2_5.md` → `bodha-chitta-v2_6.md`).
+- **Cross-references:** Update filenames in cross-references to the new version (e.g., `<design-doc>-v2_5.md` → `<design-doc>-v2_6.md`).
 - **Tables:** When adding rows to tables, match the existing column structure and style exactly.
 - **New sections:** Place them where they logically belong in the document's existing structure, not appended at the end. Match the heading level and style.
 

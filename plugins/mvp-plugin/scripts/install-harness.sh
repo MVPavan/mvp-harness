@@ -26,7 +26,7 @@ printf '#### Adopting harness into %s\n' "$TARGET"
 git -C "$TARGET" rev-parse --show-toplevel >/dev/null 2>&1 || \
   hp_warn "target is not a git repo — changes will not be under version control; review carefully"
 
-copied=0; overwritten=0; preserved=0; conflicts=0
+copied=0; overwritten=0; preserved=0; conflicts=0; retired=0
 
 # Hash the target's last-installed version of a payload file (from the stamp), or
 # empty if we have no record (fresh adopt, or adopted before manifests existed).
@@ -73,9 +73,6 @@ for d in "$TARGET/.claude/hooks" "$TARGET/.codex/hooks"; do
   [ -d "$d" ] && find "$d" -type f \( -name '*.sh' -o -name '*.py' \) -exec chmod +x {} +
 done
 
-# Record the installed payload so the next /mvp-plugin:update can three-way merge.
-if [ -f "$NEW_MANIFEST" ]; then cp -p "$NEW_MANIFEST" "$STAMP"; fi
-
 # --- 2. Overlay skeletons: structure now, facts filled by the adopt skill. -----
 write_stub() {
   local rel="$1"
@@ -113,11 +110,13 @@ write_stub ".claude/project/code-intel.md" "Code Intelligence (code-intel plugin
 ensure_yaml_key() {
   local file="$1" key="$2" val="$3"
   [ -f "$file" ] || return 0
-  if grep -qE "^${key}:" "$file"; then
-    perl -pi -e "s{^\Q${key}\E:.*}{${key}: \"${val}\"}g" "$file"
-  else
-    printf '\n%s: "%s"\n' "$key" "$val" >> "$file"
-  fi
+  # awk passes the value as data (-v v), so a URL containing @ / $ / " is never
+  # re-interpreted (perl treated "git@host" as an array and silently dropped @host).
+  awk -v k="$key" -v v="$val" '
+    index($0, k":") == 1 { print k": \"" v "\""; found=1; next }
+    { print }
+    END { if (!found) print k": \"" v "\"" }
+  ' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
 }
 if command -v bd >/dev/null 2>&1; then
   if [ -f "$TARGET/.beads/metadata.json" ]; then
@@ -127,7 +126,7 @@ if command -v bd >/dev/null 2>&1; then
   else
     hp_warn "bd init failed — run 'bd init' in the repo manually"
   fi
-  mkdir -p "$TARGET/.beads"; cp "$TPL/beads/beads.md" "$TARGET/.beads/beads.md"
+  mkdir -p "$TARGET/.beads"; copy_one "beads/beads.md"   # three-way, never clobber local edits
   ( cd "$TARGET" && bd config set export.auto true >/dev/null 2>&1 ) || true
   url="$(git -C "$TARGET" remote get-url origin 2>/dev/null || true)"
   [ -n "$url" ] && { ensure_yaml_key "$TARGET/.beads/config.yaml" "sync.remote" "git+$url"; hp_ok "beads sync.remote -> git+$url"; }
@@ -144,8 +143,28 @@ else
   hp_ok "appended harness block to .gitignore"
 fi
 
+# --- 4b. Retire files removed from the template, then stamp the new manifest. ---
+# A file dropped from the payload should not linger in the adopted repo — but only
+# delete it if it is unmodified (local hash == old base); otherwise keep it + warn,
+# so a repo's own work is never destroyed. Stamp last so all three-way reads above
+# saw the OLD base.
+if [ -f "$STAMP" ] && [ -f "$NEW_MANIFEST" ]; then
+  while IFS=$'\t' read -r orel ohash; do
+    case "$orel" in ''|'#'*) continue ;; esac
+    awk -F'\t' -v k="$orel" '$1==k{f=1} END{exit !f}' "$NEW_MANIFEST" && continue
+    odst="$TARGET/$(hp_to_dotted "$orel")"
+    [ -e "$odst" ] || continue
+    if [ "$(hp_hash "$odst")" = "$ohash" ]; then
+      rm -f "$odst"; retired=$((retired+1)); hp_ok "$(hp_to_dotted "$orel") (retired; removed from harness)"
+    else
+      hp_warn "$(hp_to_dotted "$orel") (removed from harness but locally modified — left in place)"
+    fi
+  done < "$STAMP"
+fi
+if [ -f "$NEW_MANIFEST" ]; then cp -p "$NEW_MANIFEST" "$STAMP"; fi
+
 # --- 5. Summary. --------------------------------------------------------------
-printf '#### install-harness done: %s new, %s core updated, %s preserved/kept, %s conflicts\n' "$copied" "$overwritten" "$preserved" "$conflicts"
+printf '#### install-harness done: %s new, %s core updated, %s preserved/kept, %s conflicts, %s retired\n' "$copied" "$overwritten" "$preserved" "$conflicts" "$retired"
 if [ "$conflicts" -gt 0 ]; then
   printf 'NOTE: %s file(s) changed BOTH locally and upstream — your version was kept; review the *.template-new copies.\n' "$conflicts"
 fi

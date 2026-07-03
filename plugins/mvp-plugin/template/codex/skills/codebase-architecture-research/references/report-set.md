@@ -50,7 +50,7 @@ Use this reference when writing the final report files for `codebase-architectur
 - How to build, run, test, and inspect the system when relevant.
 - Logs, diagnostics, storage locations, and debug surfaces.
 - Important commands with caveats.
-- What not to run or modify from the parent orchestrators repo.
+- What not to run or modify from the parent the parent repo repo.
 
 `agent/90-open-questions.md`
 
