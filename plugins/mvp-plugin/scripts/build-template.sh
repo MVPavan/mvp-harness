@@ -71,6 +71,31 @@ for tree in claude codex; do
   fi
 done
 
+# 2b. Strip curation-only hooks (harness-*) from the template's settings.json so an
+#     adopted repo never references a hook that was deliberately excluded from the
+#     payload (see template-exclude.txt). Curation hooks stay root-only.
+for tree in claude codex; do
+  st="$TPL/$tree/settings.json"
+  [ -f "$st" ] || continue
+  python3 - "$st" <<'PY'
+import json, sys
+path = sys.argv[1]
+data = json.load(open(path))
+hooks = data.get("hooks", {})
+for event in list(hooks):
+    kept = [g for g in hooks[event]
+            if not any("harness-" in h.get("command", "") for h in g.get("hooks", []))]
+    if kept:
+        hooks[event] = kept
+    else:
+        del hooks[event]
+with open(path, "w") as fh:
+    json.dump(data, fh, indent=2)
+    fh.write("\n")
+PY
+  note "stripped curation hooks from $tree/settings.json"
+done
+
 # 3. Root instruction files + beads policy doc.
 cp "$REPO/CLAUDE.md" "$TPL/CLAUDE.md"
 cp "$REPO/AGENTS.md" "$TPL/AGENTS.md"
@@ -123,6 +148,7 @@ check '/home/pavanmv'    'machine path'
 check '/data/codes'      'machine path'
 check 'reference_harnesses' 'coding-ritual path (genericize rule drifted)'
 check 'harness_learnings'   'coding-ritual path (genericize rule drifted)'
+check 'harness-staleness'   'curation hook leaked into template settings.json'
 [ "$fail" -eq 0 ] || die "project/machine-specific strings leaked into template/ (see LEAK lines above)"
 
 # 7. Summary.
