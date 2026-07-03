@@ -43,19 +43,22 @@ command -v rsync >/dev/null 2>&1 || die "rsync is required"
 printf '#### Regenerating template/ from %s\n' "$REPO"
 mkdir -p "$TPL"
 
-# 1. Mirror the two harness trees, minus overlay + Bodha python rules.
-for tree in .claude .codex; do
-  [ -d "$REPO/$tree" ] || { note "skip $tree (absent)"; continue; }
+# 1. Mirror the two harness trees (dotted source -> dot-less payload), minus
+#    overlay + project-flavoured python rules. The payload is stored dot-less so
+#    the source harness's own Claude Code does not scan template/.claude as
+#    project skills; install-harness.sh restores the dots on copy into a target.
+for tree in claude codex; do
+  [ -d "$REPO/.$tree" ] || { note "skip .$tree (absent)"; continue; }
   rsync -a --delete \
     --exclude '/project/' \
     --exclude '/rules/python/coding-style.md' \
     --exclude '/rules/python/safety.md' \
-    "$REPO/$tree/" "$TPL/$tree/"
-  note "mirrored $tree"
+    "$REPO/.$tree/" "$TPL/$tree/"
+  note "mirrored .$tree -> $tree"
 done
 
 # 2. Genericised python rules into whichever harness trees ship them.
-for tree in .claude .codex; do
+for tree in claude codex; do
   if [ -d "$TPL/$tree/rules/python" ]; then
     cp "$OVR/python/coding-style.md" "$TPL/$tree/rules/python/coding-style.md"
     cp "$OVR/python/safety.md"       "$TPL/$tree/rules/python/safety.md"
@@ -66,9 +69,9 @@ done
 # 3. Root instruction files + beads policy doc.
 cp "$REPO/CLAUDE.md" "$TPL/CLAUDE.md"
 cp "$REPO/AGENTS.md" "$TPL/AGENTS.md"
-mkdir -p "$TPL/.beads"
-cp "$REPO/.beads/beads.md" "$TPL/.beads/beads.md"
-note "copied CLAUDE.md, AGENTS.md, .beads/beads.md"
+mkdir -p "$TPL/beads"
+cp "$REPO/.beads/beads.md" "$TPL/beads/beads.md"
+note "copied CLAUDE.md, AGENTS.md, beads/beads.md"
 
 # 4. Genericise the few project-specific lines in CLAUDE.md / AGENTS.md.
 genericize() {
@@ -112,9 +115,9 @@ check '/data/codes'      'machine path'
 [ "$fail" -eq 0 ] || die "project/machine-specific strings leaked into template/ (see LEAK lines above)"
 
 # 7. Summary.
-n_claude=$(find "$TPL/.claude" -type f 2>/dev/null | wc -l | tr -d ' ')
-n_codex=$(find "$TPL/.codex" -type f 2>/dev/null | wc -l | tr -d ' ')
-printf '#### template/ regenerated: %s files under .claude, %s under .codex, plus CLAUDE.md/AGENTS.md/.beads/beads.md\n' "$n_claude" "$n_codex"
+n_claude=$(find "$TPL/claude" -type f 2>/dev/null | wc -l | tr -d ' ')
+n_codex=$(find "$TPL/codex" -type f 2>/dev/null | wc -l | tr -d ' ')
+printf '#### template/ regenerated: %s files under claude, %s under codex, plus CLAUDE.md/AGENTS.md/beads/beads.md\n' "$n_claude" "$n_codex"
 printf 'OK: no project/machine-specific strings in payload.\n'
 
 # 8. Advisory drift check between the two payload trees. Never fails the build —

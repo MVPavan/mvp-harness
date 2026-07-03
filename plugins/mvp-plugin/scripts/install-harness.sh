@@ -17,7 +17,7 @@ PLUGIN="$HP_PLUGIN_DIR"
 TPL="$PLUGIN/template"
 TARGET="$(hp_target)"
 
-[ -d "$TPL/.claude" ] || hp_die "template payload missing at $TPL — run scripts/build-template.sh"
+[ -d "$TPL/claude" ] || hp_die "template payload missing at $TPL — run scripts/build-template.sh"
 [ -d "$TARGET" ]      || hp_die "target repo not found: $TARGET"
 
 printf '#### Adopting harness into %s\n' "$TARGET"
@@ -28,12 +28,13 @@ copied=0; overwritten=0; preserved=0
 
 # --- 1. Copy the payload (both harness trees + root instruction files). --------
 copy_one() {
-  local rel="$1"
+  local rel="$1"                              # dot-less path within template/ (claude/…, codex/…)
   local src="$TPL/$rel"
-  local dst="$TARGET/$rel"
+  local drel; drel="$(hp_to_dotted "$rel")"   # dotted path the adopted repo needs (.claude/…)
+  local dst="$TARGET/$drel"
   mkdir -p "$(dirname "$dst")"
   if [ -e "$dst" ]; then
-    if hp_is_user_owned "$rel"; then hp_skip "$rel (exists, preserved)"; preserved=$((preserved+1)); return; fi
+    if hp_is_user_owned "$drel"; then hp_skip "$drel (exists, preserved)"; preserved=$((preserved+1)); return; fi
     cmp -s "$src" "$dst" && return
     cp -p "$src" "$dst"; overwritten=$((overwritten+1)); return
   fi
@@ -41,7 +42,7 @@ copy_one() {
 }
 while IFS= read -r -d '' src; do
   copy_one "${src#"$TPL"/}"
-done < <(find "$TPL" -type f -not -path "$TPL/.beads/*" -print0)
+done < <(find "$TPL" -type f -not -path "$TPL/beads/*" -print0)
 
 # Hook scripts must stay executable (settings.json invokes them directly).
 for d in "$TARGET/.claude/hooks" "$TARGET/.codex/hooks"; do
@@ -99,7 +100,7 @@ if command -v bd >/dev/null 2>&1; then
   else
     hp_warn "bd init failed — run 'bd init' in the repo manually"
   fi
-  mkdir -p "$TARGET/.beads"; cp "$TPL/.beads/beads.md" "$TARGET/.beads/beads.md"
+  mkdir -p "$TARGET/.beads"; cp "$TPL/beads/beads.md" "$TARGET/.beads/beads.md"
   ( cd "$TARGET" && bd config set export.auto true >/dev/null 2>&1 ) || true
   url="$(git -C "$TARGET" remote get-url origin 2>/dev/null || true)"
   [ -n "$url" ] && { ensure_yaml_key "$TARGET/.beads/config.yaml" "sync.remote" "git+$url"; hp_ok "beads sync.remote -> git+$url"; }

@@ -73,7 +73,7 @@ commands/        adopt.md  doctor.md  update.md   # /mvp-plugin:* (the only glob
 skills/harness-adopt/SKILL.md                     # overlay adaptation (judgement half)
 scripts/         install-harness.sh  doctor.sh  build-template.sh  check-sync.sh  lib/common.sh  overrides/
                  sync-manifest.txt  sync-baseline.txt               # drift check: intentional divergences + accepted state
-template/        CLAUDE.md  AGENTS.md  .claude/…  .codex/…  .beads/beads.md   # the payload (inert data)
+template/        CLAUDE.md  AGENTS.md  claude/…  codex/…  beads/beads.md    # payload, stored DOT-LESS
 vendor/codex-adapter/                             # bundled co-plugin (vendored source)
 test/            Dockerfile  run-tests.sh  from-zero.sh  README.md
 ```
@@ -81,6 +81,11 @@ test/            Dockerfile  run-tests.sh  from-zero.sh  README.md
 `template/` is **not** auto-loaded by Claude Code (it isn't at the plugin root) —
 it is pure payload that `install-harness.sh` copies. So enabling `mvp-plugin` gives
 you exactly `/mvp-plugin:adopt|doctor|update`, never a duplicate of every skill.
+
+The payload dirs are stored **dot-less** (`claude/`, `codex/`, `beads/`) so the
+source harness's own Claude Code does not scan `template/.claude/skills` as project
+skills while you edit the payload. `install-harness.sh` restores the leading dots on
+copy, so the adopted repo still gets the required `.claude/` `.codex/` `.beads/`.
 
 ## Maintaining the payload
 

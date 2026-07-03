@@ -15,7 +15,7 @@ no(){ printf '  FAIL  %s\n' "$1"; fail=$((fail+1)); }
 chk(){ if eval "$2"; then ok "$1"; else no "$1"; fi; }
 hdr(){ printf '\n== %s ==\n' "$1"; }
 
-[ -d "$TPL/.claude" ] || { echo "FATAL: template payload missing at $TPL"; exit 2; }
+[ -d "$TPL/claude" ] || { echo "FATAL: template payload missing at $TPL"; exit 2; }
 
 hdr "fresh target repo"
 rm -rf "$FIX"; mkdir -p "$FIX"

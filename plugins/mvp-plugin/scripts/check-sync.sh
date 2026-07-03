@@ -29,8 +29,8 @@ if [ "${BASH_VERSINFO:-0}" -lt 4 ]; then
   hp_die "bash >= 4 required (uses associative arrays); found ${BASH_VERSION:-unknown}"
 fi
 
-LEFT="${SYNC_LEFT:-$HP_PLUGIN_DIR/template/.claude}"
-RIGHT="${SYNC_RIGHT:-$HP_PLUGIN_DIR/template/.codex}"
+LEFT="${SYNC_LEFT:-$HP_PLUGIN_DIR/template/claude}"
+RIGHT="${SYNC_RIGHT:-$HP_PLUGIN_DIR/template/codex}"
 MANIFEST="$SCRIPT_DIR/sync-manifest.txt"
 BASELINE="$SCRIPT_DIR/sync-baseline.txt"
 MODE="${1:-check}"

@@ -40,3 +40,15 @@ hp_is_user_owned() {
     *) return 1 ;;
   esac
 }
+
+# The payload is stored dot-less (claude/… codex/… beads/…) so the source
+# harness's own Claude Code does not scan template/.claude as project skills.
+# Map a stored payload path back to the dotted path the adopted repo needs
+# (.claude/… .codex/… .beads/…). Root files (CLAUDE.md, AGENTS.md) pass through.
+hp_to_dotted() {
+  case "$1" in
+    claude|codex|beads) printf '.%s' "$1" ;;
+    claude/*|codex/*|beads/*) printf '.%s' "$1" ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
