@@ -1,0 +1,23 @@
+# template-exclude.txt — rsync exclude patterns for build-template.sh.
+#
+# Files matching these NEVER ship into mvp-plugin/template/; they stay root-only.
+# This keeps the shipped template a strict SUBSET of the coding-ritual root
+# harness: the root harness may hold curation / harness-lifecycle tooling that is
+# only useful in the harness-maintainer repo, and must not land in adopted repos.
+#
+# Convention: name curation / harness-lifecycle tooling `harness-*` (skills,
+# commands, hooks) or place it under a `harness-lifecycle/` subdir (rules), so one
+# pattern covers every future addition without editing this file each time.
+#
+# Patterns are relative to each tree root (.claude/ or .codex/); a leading `/`
+# anchors to that root, a trailing `/` matches a directory. build-template.sh
+# feeds this file to rsync via --exclude-from.
+
+# --- harness-lifecycle curation tooling (root-only; never adopted) ---
+/skills/harness-*/
+/commands/harness-*
+/hooks/harness-*
+/rules/harness-lifecycle/
+
+# --- stale pre-restructure curation skill (out of scope; pending deletion) ---
+/skills/refresh-harness-from-reference/

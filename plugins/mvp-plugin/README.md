@@ -73,6 +73,7 @@ commands/        adopt.md  doctor.md  update.md   # /mvp-plugin:* (the only glob
 skills/harness-adopt/SKILL.md                     # overlay adaptation (judgement half)
 scripts/         install-harness.sh  doctor.sh  build-template.sh  check-sync.sh  lib/common.sh  overrides/
                  sync-manifest.txt  sync-baseline.txt               # drift check: intentional divergences + accepted state
+                 template-exclude.txt                               # curation-only paths kept out of template (template ⊂ root harness)
 template/        CLAUDE.md  AGENTS.md  claude/…  codex/…  beads/beads.md    # payload, stored DOT-LESS
 vendor/codex-adapter/                             # bundled co-plugin (vendored source)
 test/            Dockerfile  run-tests.sh  from-zero.sh  README.md
@@ -96,11 +97,14 @@ editing the canonical `.claude/`/`.codex/` there, regenerate the payload:
 bash scripts/build-template.sh
 ```
 
-It mirrors both trees into `template/`, **excludes** the per-repo overlay,
-swaps in genericised Python rules from `scripts/overrides/`, genericises the few
-project-specific lines (submodule names, "no first-party source tree"), strips
-machine-local paths and example project tokens, and **fails loudly** if any
-project/machine-specific string leaks into the payload.
+It mirrors both trees into `template/`, **excludes** the per-repo overlay and any
+**curation-only harness-lifecycle tooling** listed in `scripts/template-exclude.txt`
+(so the shipped template stays a strict subset of the root harness — maintainer
+tooling never lands in adopted repos), swaps in genericised Python rules from
+`scripts/overrides/`, genericises the few project-specific lines (submodule names,
+"no first-party source tree"), strips machine-local paths and example project
+tokens, and **fails loudly** if any project/machine-specific string leaks into the
+payload.
 
 ### Keeping `.claude` and `.codex` in sync
 

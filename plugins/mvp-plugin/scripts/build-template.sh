@@ -18,6 +18,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 TPL="$PLUGIN_DIR/template"
 OVR="$SCRIPT_DIR/overrides"
+EXCLUDE_FILE="$SCRIPT_DIR/template-exclude.txt"
 
 note() { printf '  %s\n' "$1"; }
 die()  { printf 'build-template FAIL: %s\n' "$1" >&2; exit 1; }
@@ -43,16 +44,20 @@ command -v rsync >/dev/null 2>&1 || die "rsync is required"
 printf '#### Regenerating template/ from %s\n' "$REPO"
 mkdir -p "$TPL"
 
-# 1. Mirror the two harness trees (dotted source -> dot-less payload), minus
-#    overlay + project-flavoured python rules. The payload is stored dot-less so
-#    the source harness's own Claude Code does not scan template/.claude as
-#    project skills; install-harness.sh restores the dots on copy into a target.
+# 1. Mirror the two harness trees (dotted source -> dot-less payload), minus the
+#    per-repo overlay, the project-flavoured python rules, and curation-only
+#    harness-lifecycle tooling (template-exclude.txt) that must stay root-only so
+#    the shipped template is a strict SUBSET of the root harness. The payload is
+#    stored dot-less so the source harness's own Claude Code does not scan
+#    template/.claude as project skills; install-harness.sh restores the dots.
+[ -f "$EXCLUDE_FILE" ] || die "template exclude list not found: $EXCLUDE_FILE"
 for tree in claude codex; do
   [ -d "$REPO/.$tree" ] || { note "skip .$tree (absent)"; continue; }
   rsync -a --delete \
     --exclude '/project/' \
     --exclude '/rules/python/coding-style.md' \
     --exclude '/rules/python/safety.md' \
+    --exclude-from "$EXCLUDE_FILE" \
     "$REPO/.$tree/" "$TPL/$tree/"
   note "mirrored .$tree -> $tree"
 done
@@ -76,7 +81,11 @@ note "copied CLAUDE.md, AGENTS.md, beads/beads.md"
 # 4. Genericise the few project-specific lines in CLAUDE.md / AGENTS.md.
 genericize() {
   local f="$1"
-  perl -0pi -e 's/`external\/gascity` and `external\/gastown` are Git submodules\./External upstream projects, if any, are tracked as Git submodules under `external\/` (see `.gitmodules`)./g' "$f"
+  # Read-order line 6 + § External Submodules: the root harness describes its own
+  # reference_harnesses/ + harness_learnings/ setup, which is meaningless in an
+  # adopted repo. Neutralise both to the provider-agnostic external/ wording.
+  perl -0pi -e 's{`reference_harnesses/<name>/` docs — only when the task is explicitly about that reference submodule}{`external/<name>/` docs — only when the task is explicitly about that submodule}g' "$f"
+  perl -0pi -e 's{Third-party \*\*reference harness\*\* repos are tracked as Git submodules under `reference_harnesses/` \(see `\.gitmodules`\)\. The parent repo tracks their commit pointers only — they are read-only references, never copied into the local harness\. Do not edit submodule internals unless the task is explicitly submodule-local; for upstream sync, update and stage the submodule path\. Borrow only the smallest durable pattern \(see `harness_learnings/reference-harness-workflow\.md`\)\.}{External upstream projects, if any, are tracked as Git submodules under `external/` (see `.gitmodules`). The parent repo tracks their commit pointers only. Do not edit submodule internals unless the task is explicitly submodule-local; for upstream sync, update and stage the submodule path.}g' "$f"
   perl -0pi -e 's/This repo currently has no first-party source tree or test suite\. Use the structural checks/Until the repo has real first-party code and CI, use the structural checks/g' "$f"
   perl -0pi -e 's/ until real code and CI exist\././g' "$f"
 }
@@ -112,6 +121,8 @@ check 'gascity'          'submodule name'
 check 'gastown'          'submodule name'
 check '/home/pavanmv'    'machine path'
 check '/data/codes'      'machine path'
+check 'reference_harnesses' 'coding-ritual path (genericize rule drifted)'
+check 'harness_learnings'   'coding-ritual path (genericize rule drifted)'
 [ "$fail" -eq 0 ] || die "project/machine-specific strings leaked into template/ (see LEAK lines above)"
 
 # 7. Summary.
