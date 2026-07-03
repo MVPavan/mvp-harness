@@ -133,7 +133,7 @@ while IFS= read -r -d '' f; do
     s/\bgastown\b/<name>/g;
     s/\bgascity\b/<name>/g;
     s/\bBodha\b/the project/gi;
-    s/\borchestrators\b/the parent repo/gi;
+    s/\borchestrators\b/upstream/gi;
   ' "$f"
 done < <(find "$TPL" -type f \( -name '*.md' -o -name '*.py' -o -name '*.yaml' -o -name '*.yml' -o -name '*.toml' -o -name '*.json' -o -name '*.sh' -o -name '*.mjs' -o -name '*.rules' -o -name '*.txt' \) -print0)
 note "swept machine-local paths + example tokens"

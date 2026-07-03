@@ -151,13 +151,16 @@ fi
 if [ -f "$STAMP" ] && [ -f "$NEW_MANIFEST" ]; then
   while IFS=$'\t' read -r orel ohash; do
     case "$orel" in ''|'#'*) continue ;; esac
+    case "$orel" in /*|*..*) hp_warn "manifest path skipped (unsafe: $orel)"; continue ;; esac  # no escape from $TARGET
+    odrel="$(hp_to_dotted "$orel")"
+    hp_is_user_owned "$odrel" && continue                    # never retire a user-owned file
     awk -F'\t' -v k="$orel" '$1==k{f=1} END{exit !f}' "$NEW_MANIFEST" && continue
-    odst="$TARGET/$(hp_to_dotted "$orel")"
+    odst="$TARGET/$odrel"
     [ -e "$odst" ] || continue
     if [ "$(hp_hash "$odst")" = "$ohash" ]; then
-      rm -f "$odst"; retired=$((retired+1)); hp_ok "$(hp_to_dotted "$orel") (retired; removed from harness)"
+      rm -f "$odst"; retired=$((retired+1)); hp_ok "$odrel (retired; removed from harness)"
     else
-      hp_warn "$(hp_to_dotted "$orel") (removed from harness but locally modified — left in place)"
+      hp_warn "$odrel (removed from harness but locally modified — left in place)"
     fi
   done < "$STAMP"
 fi
