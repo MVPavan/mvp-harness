@@ -110,9 +110,12 @@ write_stub ".claude/project/code-intel.md" "Code Intelligence (code-intel plugin
 ensure_yaml_key() {
   local file="$1" key="$2" val="$3"
   [ -f "$file" ] || return 0
-  # awk passes the value as data (-v v), so a URL containing @ / $ / " is never
-  # re-interpreted (perl treated "git@host" as an array and silently dropped @host).
-  awk -v k="$key" -v v="$val" '
+  # Escape backslash then double-quote so the YAML string stays valid, and pass the
+  # value via the environment: awk's -v mangles backslashes and re-interprets @host,
+  # ENVIRON does neither.
+  local esc="${val//\\/\\\\}"; esc="${esc//\"/\\\"}"
+  EYK_VAL="$esc" awk -v k="$key" '
+    BEGIN { v = ENVIRON["EYK_VAL"] }
     index($0, k":") == 1 { print k": \"" v "\""; found=1; next }
     { print }
     END { if (!found) print k": \"" v "\"" }
