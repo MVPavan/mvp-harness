@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Tier-1 suite for the harness plugin. Drives the plugin directly (no Claude Code
 # account needed): adopt into a fresh repo, verify everything landed and wired,
-# check idempotency, and validate the bundled co-plugin. Exit non-zero on any fail.
+# check idempotency, and verify the non-destructive update. Exit non-zero on any fail.
 #
 # Host:      PLUGIN_DIR=external/mvp-plugin bash external/mvp-plugin/test/run-tests.sh
 # Container: default ENTRYPOINT (PLUGIN_DIR=/opt/mvp-plugin).
@@ -56,12 +56,13 @@ hdr "payload is generic (no project/machine strings)"
 chk "no Bodha/gascity/gastown in adopted .claude+.codex" '! grep -rIqE "Bodha|gascity|gastown" "$FIX/.claude" "$FIX/.codex"'
 chk "no /home/pavanmv or /data/codes in payload" '! grep -rIqE "/home/pavanmv|/data/codes" "$FIX/.claude" "$FIX/.codex" "$FIX/CLAUDE.md" "$FIX/AGENTS.md"'
 
-hdr "bundled codex-adapter co-plugin"
-chk "vendored plugin.json" '[ -f "$PLUGIN/vendor/codex-adapter/.claude-plugin/plugin.json" ]'
-chk "codex-run.mjs present" '[ -f "$PLUGIN/vendor/codex-adapter/scripts/codex-run.mjs" ]'
-chk "codex commands present" '[ -f "$PLUGIN/vendor/codex-adapter/commands/codex.md" ]'
-chk "marketplace lists both plugins" 'grep -q "\"codex-adapter\"" "$PLUGIN/.claude-plugin/marketplace.json" && grep -q "\"mvp-plugin\"" "$PLUGIN/.claude-plugin/marketplace.json"'
-chk "node can parse codex-run.mjs" 'node --check "$PLUGIN/vendor/codex-adapter/scripts/codex-run.mjs" 2>/dev/null'
+hdr "non-destructive update (three-way merge)"
+chk "payload manifest stamped in repo" '[ -f "$FIX/.harness-manifest.txt" ]'
+UPDCORE="$FIX/.claude/rules/core/01-delegation.md"
+echo "LOCAL-EDIT-KEPT" >> "$UPDCORE"
+CLAUDE_PLUGIN_ROOT="$PLUGIN" CLAUDE_PROJECT_DIR="$FIX" bash "$PLUGIN/scripts/install-harness.sh" >/tmp/hp-update.log 2>&1
+chk "local edit to a core file survives re-adopt (update)" 'grep -q "LOCAL-EDIT-KEPT" "$UPDCORE"'
+chk "update kept the local edit (0 core updated)" 'grep -q "0 core updated" /tmp/hp-update.log'
 
 hdr "doctor"
 CLAUDE_PLUGIN_ROOT="$PLUGIN" CLAUDE_PROJECT_DIR="$FIX" bash "$PLUGIN/scripts/doctor.sh" >/tmp/hp-doctor.log 2>&1; rc_doctor=$?

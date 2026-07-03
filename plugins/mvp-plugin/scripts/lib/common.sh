@@ -52,3 +52,14 @@ hp_to_dotted() {
     *) printf '%s' "$1" ;;
   esac
 }
+
+# Content hash (sha256) of a file, for the three-way update merge. Prints an empty
+# string for a missing file. Portable across the sha256sum / shasum front-ends.
+hp_hash() {
+  [ -f "$1" ] || return 0
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | cut -d' ' -f1
+  else
+    shasum -a 256 "$1" | cut -d' ' -f1
+  fi
+}

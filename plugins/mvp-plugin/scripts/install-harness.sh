@@ -16,6 +16,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN="$HP_PLUGIN_DIR"
 TPL="$PLUGIN/template"
 TARGET="$(hp_target)"
+STAMP="$TARGET/.harness-manifest.txt"     # this repo's record of the last-installed payload hashes
+NEW_MANIFEST="$TPL/harness-manifest.txt"  # the payload we are installing now
 
 [ -d "$TPL/claude" ] || hp_die "template payload missing at $TPL — run scripts/build-template.sh"
 [ -d "$TARGET" ]      || hp_die "target repo not found: $TARGET"
@@ -24,30 +26,55 @@ printf '#### Adopting harness into %s\n' "$TARGET"
 git -C "$TARGET" rev-parse --show-toplevel >/dev/null 2>&1 || \
   hp_warn "target is not a git repo — changes will not be under version control; review carefully"
 
-copied=0; overwritten=0; preserved=0
+copied=0; overwritten=0; preserved=0; conflicts=0
+
+# Hash the target's last-installed version of a payload file (from the stamp), or
+# empty if we have no record (fresh adopt, or adopted before manifests existed).
+hp_base_hash() {
+  [ -f "$STAMP" ] || return 0
+  awk -F'\t' -v k="$1" '$1==k{print $2; exit}' "$STAMP" 2>/dev/null || true
+}
 
 # --- 1. Copy the payload (both harness trees + root instruction files). --------
+# Three-way merge on re-run (/mvp-plugin:update) so a repo's local edits to core
+# files are never silently overwritten: base = last-installed (stamp), local =
+# what's in the repo now, new = the current template.
 copy_one() {
   local rel="$1"                              # dot-less path within template/ (claude/…, codex/…)
   local src="$TPL/$rel"
   local drel; drel="$(hp_to_dotted "$rel")"   # dotted path the adopted repo needs (.claude/…)
   local dst="$TARGET/$drel"
   mkdir -p "$(dirname "$dst")"
-  if [ -e "$dst" ]; then
-    if hp_is_user_owned "$drel"; then hp_skip "$drel (exists, preserved)"; preserved=$((preserved+1)); return; fi
-    cmp -s "$src" "$dst" && return
-    cp -p "$src" "$dst"; overwritten=$((overwritten+1)); return
+  if [ ! -e "$dst" ]; then
+    cp -p "$src" "$dst"; copied=$((copied+1)); return
   fi
-  cp -p "$src" "$dst"; copied=$((copied+1))
+  if hp_is_user_owned "$drel"; then hp_skip "$drel (exists, preserved)"; preserved=$((preserved+1)); return; fi
+  local new_hash local_hash base_hash
+  new_hash="$(hp_hash "$src")"
+  local_hash="$(hp_hash "$dst")"
+  if [ "$local_hash" = "$new_hash" ]; then return; fi                 # already up to date
+  base_hash="$(hp_base_hash "$rel")"
+  if [ -n "$base_hash" ] && [ "$local_hash" = "$base_hash" ]; then
+    cp -p "$src" "$dst"; overwritten=$((overwritten+1)); return       # untouched locally -> update
+  fi
+  if [ -n "$base_hash" ] && [ "$new_hash" = "$base_hash" ]; then
+    hp_skip "$drel (kept local edit; core unchanged)"; preserved=$((preserved+1)); return
+  fi
+  cp -p "$src" "$dst.template-new"                                     # local + core both changed
+  hp_warn "$drel (local edit kept; new version at ${drel}.template-new)"
+  conflicts=$((conflicts+1))
 }
 while IFS= read -r -d '' src; do
   copy_one "${src#"$TPL"/}"
-done < <(find "$TPL" -type f -not -path "$TPL/beads/*" -print0)
+done < <(find "$TPL" -type f -not -path "$TPL/beads/*" ! -name harness-manifest.txt -print0)
 
 # Hook scripts must stay executable (settings.json invokes them directly).
 for d in "$TARGET/.claude/hooks" "$TARGET/.codex/hooks"; do
   [ -d "$d" ] && find "$d" -type f \( -name '*.sh' -o -name '*.py' \) -exec chmod +x {} +
 done
+
+# Record the installed payload so the next /mvp-plugin:update can three-way merge.
+if [ -f "$NEW_MANIFEST" ]; then cp -p "$NEW_MANIFEST" "$STAMP"; fi
 
 # --- 2. Overlay skeletons: structure now, facts filled by the adopt skill. -----
 write_stub() {
@@ -118,5 +145,8 @@ else
 fi
 
 # --- 5. Summary. --------------------------------------------------------------
-printf '#### install-harness done: %s new, %s core updated, %s user-owned preserved\n' "$copied" "$overwritten" "$preserved"
+printf '#### install-harness done: %s new, %s core updated, %s preserved/kept, %s conflicts\n' "$copied" "$overwritten" "$preserved" "$conflicts"
+if [ "$conflicts" -gt 0 ]; then
+  printf 'NOTE: %s file(s) changed BOTH locally and upstream — your version was kept; review the *.template-new copies.\n' "$conflicts"
+fi
 printf 'NEXT: fill the project overlay (.claude/project/*, .codex/project/*) from repo reality — the harness-adopt skill does this.\n'

@@ -56,8 +56,12 @@ Two cleanly separated halves (deterministic transforms are code; judgement is th
    detected stack → suggested MCP servers / hooks / subagents / the `code-intel`
    plugin). Nothing is auto-enabled.
 
-`/mvp-plugin:update` re-runs only the deterministic half (refresh the reusable core,
-keep the filled overlay). `/mvp-plugin:doctor` runs [`scripts/doctor.sh`](scripts/doctor.sh).
+`/mvp-plugin:update` re-runs only the deterministic half. It is **non-destructive**:
+a per-file manifest (`template/harness-manifest.txt`, stamped into the repo as
+`.harness-manifest.txt` on adopt) drives a base/local/new three-way merge, so a core
+file you have edited locally is **never overwritten**. If it also changed upstream you
+keep yours and the new version is written alongside as `<file>.template-new`.
+`/mvp-plugin:doctor` runs [`scripts/doctor.sh`](scripts/doctor.sh).
 
 ### What's project-specific vs reusable
 
@@ -74,7 +78,7 @@ skills/harness-adopt/SKILL.md                     # overlay adaptation (judgemen
 scripts/         install-harness.sh  doctor.sh  build-template.sh  check-sync.sh  lib/common.sh  overrides/
                  sync-manifest.txt  sync-baseline.txt               # drift check: intentional divergences + accepted state
                  template-exclude.txt                               # curation-only paths kept out of template (template ⊂ root harness)
-template/        CLAUDE.md  AGENTS.md  claude/…  codex/…  beads/beads.md    # payload, stored DOT-LESS
+template/        CLAUDE.md  AGENTS.md  claude/…  codex/…  beads/beads.md  harness-manifest.txt  # payload (DOT-LESS) + update manifest
 vendor/codex-adapter/                             # bundled co-plugin (vendored source)
 test/            Dockerfile  run-tests.sh  from-zero.sh  README.md
 ```
