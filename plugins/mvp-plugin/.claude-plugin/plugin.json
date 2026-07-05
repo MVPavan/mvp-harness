@@ -1,7 +1,7 @@
 {
   "name": "mvp-plugin",
   "version": "0.1.0",
-  "description": "Reusable agent harness. Run /mvp-plugin:adopt in any repo to copy the .claude + .codex setup, rules, hooks, and beads tracking into it. Bundles codex-adapter as a co-plugin.",
+  "description": "Reusable agent harness. Run /mvp-plugin:adopt in any repo to copy the .claude + .codex setup, rules, hooks, and beads tracking into it; /mvp-plugin:update keeps it current via a non-destructive three-way merge. One plugin in the mvp-harness marketplace (siblings: code-intel, codex-adapter).",
   "author": {
     "name": "PavanMV",
     "email": "mvpavan42@gmail.com"

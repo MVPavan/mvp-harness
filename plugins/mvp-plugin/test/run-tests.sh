@@ -80,5 +80,12 @@ else
   printf '  SKIP  claude CLI not present\n'
 fi
 
+hdr "update-merge suite (three-way / orphan / conflict / core-file update)"
+if PLUGIN_DIR="$PLUGIN" bash "$PLUGIN/test/update-merge-test.sh" >/tmp/hp-update-merge.log 2>&1; then
+  ok "update-merge suite"
+else
+  no "update-merge suite FAILED (see /tmp/hp-update-merge.log)"; tail -5 /tmp/hp-update-merge.log
+fi
+
 printf '\n==== RESULT: %s passed, %s failed ====\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

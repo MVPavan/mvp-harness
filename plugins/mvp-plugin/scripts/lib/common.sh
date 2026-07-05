@@ -28,14 +28,13 @@ hp_skip() { printf '  SKIP %s\n' "$1"; }
 hp_warn() { printf '  WARN %s\n' "$1"; }
 hp_die()  { printf 'harness FAIL: %s\n' "$1" >&2; exit 1; }
 
-# A payload path is "user-owned" if it is something a repo owner customises and
-# we must never clobber: the per-repo overlay, the root instruction files, and
-# the hook/config wiring surfaces. Everything else (rules, skills, agents,
-# commands, hook scripts, docs) is reusable harness core we may overwrite.
+# A payload path is "user-owned" only if it is per-repo facts we must NEVER touch:
+# the project overlay. Everything else — including CLAUDE.md/AGENTS.md and the
+# settings.json / config.toml wiring — goes through the three-way merge, which
+# protects a repo's local edits while still letting an UNTOUCHED file receive
+# upstream improvements (e.g. new hook wiring). See install-harness.sh copy_one.
 hp_is_user_owned() {
   case "$1" in
-    CLAUDE.md|AGENTS.md) return 0 ;;
-    .claude/settings.json|.codex/config.toml|.codex/hooks.json) return 0 ;;
     .claude/project/*|.codex/project/*) return 0 ;;
     *) return 1 ;;
   esac

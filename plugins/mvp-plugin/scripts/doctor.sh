@@ -70,11 +70,26 @@ else
   W "$skeletons overlay file(s) still skeletons — run the harness-adopt skill to fill them"
 fi
 
-# 6. codex-adapter dependency (bundled co-plugin).
+# 5b. Update state: manifest present (must be committed), staleness, conflicts.
+STAMP="$TARGET/.harness-manifest.txt"
+if [ -f "$STAMP" ]; then
+  P "harness manifest present (commit .harness-manifest.txt — it's the update merge base)"
+  NEWM="$HP_PLUGIN_DIR/template/harness-manifest.txt"
+  [ -f "$NEWM" ] && ! cmp -s "$STAMP" "$NEWM" && W "harness update available — run /mvp-plugin:update"
+else
+  W "no .harness-manifest.txt — /mvp-plugin:update can't three-way merge (re-run /mvp-plugin:adopt)"
+fi
+conflicts="$(find "$TARGET/.claude" "$TARGET/.codex" -name '*.template-new' 2>/dev/null)"
+if [ -n "$conflicts" ]; then
+  W "unresolved update conflicts (*.template-new) — reconcile then delete:"
+  printf '        %s\n' $conflicts
+fi
+
+# 6. codex-adapter (sibling plugin in the marketplace) dependency.
 if command -v codex >/dev/null 2>&1; then
   P "codex CLI on PATH (codex-adapter ready)"
 else
-  W "codex CLI not found — for the bundled codex-adapter: npm i -g @openai/codex && codex login"
+  W "codex CLI not found — for the codex-adapter plugin: npm i -g @openai/codex && codex login"
 fi
 
 printf '#### doctor: %s pass, %s warn, %s fail\n' "$pass" "$warn" "$fail"

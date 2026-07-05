@@ -1,6 +1,5 @@
 # sync-baseline — accepted state of body-compared pairs.
 # Regenerate with: bash scripts/check-sync.sh accept
-B skills/ak-guide/SKILL.MD|skills/ak-guide/SKILL.md 92d4c3fd4bae042b991de8c2c5bab0408e3ae857 68eeb68c8513f50e4bab8493439ba7336df78f00
 B docs/beads-issue-tracking-adoption.md|docs/beads-issue-tracking-adoption.md c84435d24d8eafe654bb84509d06cc5a8b907693 c84435d24d8eafe654bb84509d06cc5a8b907693
 B docs/codex-discussions.md|docs/codex-discussions.md 7bfdc13223063b70ebc62d869df2c141bd2b420a 7bfdc13223063b70ebc62d869df2c141bd2b420a
 B docs/codex-usage-guide.md|docs/codex-usage-guide.md 450528aebd4249b5d7ff403881cb63f6ca456a7b 20eb94799bd16dc6e3babb4d94442c8e4a648931
@@ -13,6 +12,7 @@ B rules/core/03-ak-guidelines.md|rules/core/03-ak-guidelines.md 68341d4424a68e1f
 B rules/python/coding-style.md|rules/python/coding-style.md 6a927cafae53026853faeb37f8ade43bcdfa87cf 6a927cafae53026853faeb37f8ade43bcdfa87cf
 B rules/python/safety.md|rules/python/safety.md 117bf2174c2a345dac96c2c56fdadc90b1f6b587 117bf2174c2a345dac96c2c56fdadc90b1f6b587
 B rules/python/testing.md|rules/python/testing.md 71ca0c4b7b61d2af2c686c900fce0183fec4aebd 71ca0c4b7b61d2af2c686c900fce0183fec4aebd
+B skills/ak-guide/SKILL.md|skills/ak-guide/SKILL.md 92d4c3fd4bae042b991de8c2c5bab0408e3ae857 68eeb68c8513f50e4bab8493439ba7336df78f00
 B skills/beads/SKILL.md|skills/beads/SKILL.md e1c1de3fb2e3cfa3fa8e20d1388f9cbab3431329 631423aa536aa8be2a6dbef3576ff9109bb4c88d
 B skills/brainstorming/SKILL.md|skills/brainstorming/SKILL.md ffa36d5ac512c508e91181681ebfb8fd97d5dbbf 9f8bf74a9e564087f747c40308a29686799de2f0
 B skills/cost-estimate/SKILL.md|skills/cost-estimate/SKILL.md 6d29ad24903609b3fa6666224e44de08de479982 63692ac6682e4ad3e8786ed9e737e605c00fc3a7

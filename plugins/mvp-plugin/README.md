@@ -1,32 +1,35 @@
-# mvp-plugin — repeatable agent coding Ritual, as a plugin
+# mvp-plugin — repeatable agent coding ritual, as a plugin
 
 Install once per machine; run `/mvp-plugin:adopt` in any repo to lay down the whole
-orchestrators agent harness — `.claude/` + `.codex/` rules/skills/agents/commands/hooks,
-`CLAUDE.md`/`AGENTS.md`, and beads issue tracking — adapted to that repo. The
-marketplace also ships **codex-adapter** so the same install gives you Codex too.
+agent harness — `.claude/` + `.codex/` rules/skills/agents/commands/hooks,
+`CLAUDE.md`/`AGENTS.md`, and beads issue tracking — adapted to that repo. Run
+`/mvp-plugin:update` later to pull harness improvements via a non-destructive
+three-way merge that never clobbers your local edits.
 
 ## What you get
 
-This is a single marketplace with **two plugins**:
+`mvp-plugin` is one plugin in the **mvp-harness** marketplace, alongside the
+`code-intel` and `codex-adapter` sibling plugins. It adds:
 
-| Plugin | What it adds | Namespace |
-|---|---|---|
-| `mvp-plugin` | `/mvp-plugin:adopt`, `/mvp-plugin:doctor`, `/mvp-plugin:update` + the `harness-adopt` skill | `/mvp-plugin:*` |
-| `codex-adapter` | Call OpenAI Codex via `codex exec` — roles, true concurrency, no broker | `/codex*` |
+| Command / skill | What it does |
+|---|---|
+| `/mvp-plugin:adopt` | copy the harness into this repo + init beads, then adapt the overlay |
+| `/mvp-plugin:update` | re-sync the reusable core (non-destructive three-way merge) |
+| `/mvp-plugin:doctor` | verify the install is wired |
+| `harness-adopt` skill | fill the per-repo overlay with real facts |
 
-`codex-adapter`'s source is vendored under [`vendor/codex-adapter/`](vendor/codex-adapter/);
-it loads as its own plugin (so `${CLAUDE_PLUGIN_ROOT}` and the `/codex*` commands
-keep working unchanged), but you get it from the one mvp-plugin install.
+Codex support comes from the separate **codex-adapter** plugin in the same
+marketplace (its own `/codex*` commands); **code-intel** adds code intelligence.
 
 ## Quick start
 
 ```bash
-# 1. Register the marketplace (point it at this directory, or a clone of it)
-/plugin marketplace add /path/to/external/mvp-plugin
+# 1. Register the mvp-harness marketplace (point at a clone of the marketplace root)
+/plugin marketplace add /path/to/mvp-harness
 
-# 2. Enable both plugins
-/plugin install mvp-plugin@mvp-plugin
-/plugin install codex-adapter@mvp-plugin
+# 2. Enable the plugins you want (siblings in the one marketplace)
+/plugin install mvp-plugin@mvp-harness
+/plugin install codex-adapter@mvp-harness   # optional: the Codex bridge
 
 # 3. In any repo you want set up:
 /mvp-plugin:adopt        # copies the harness, inits beads, then adapts it to the repo
@@ -38,7 +41,7 @@ External tools the adopted repo uses:
 - **beads** (`bd`) — task tracking. Install: `npm i -g @beads/bd`. (If the binary
   download 404s because npm's *latest* points past the newest published GitHub
   release, pin one that exists: `npm i -g @beads/bd@1.0.4`.)
-- **codex** — only for the bundled codex-adapter: `npm i -g @openai/codex && codex login`.
+- **codex** — only for the `codex-adapter` plugin: `npm i -g @openai/codex && codex login`.
 
 ## How `/mvp-plugin:adopt` works
 
@@ -72,15 +75,14 @@ keep yours and the new version is written alongside as `<file>.template-new`.
 ## Layout
 
 ```
-.claude-plugin/{plugin.json, marketplace.json}   # marketplace = mvp-plugin + codex-adapter
+.claude-plugin/plugin.json                        # this plugin's manifest (marketplace.json is at the mvp-harness root)
 commands/        adopt.md  doctor.md  update.md   # /mvp-plugin:* (the only global surface)
 skills/harness-adopt/SKILL.md                     # overlay adaptation (judgement half)
 scripts/         install-harness.sh  doctor.sh  build-template.sh  check-sync.sh  lib/common.sh  overrides/
                  sync-manifest.txt  sync-baseline.txt               # drift check: intentional divergences + accepted state
                  template-exclude.txt                               # curation-only paths kept out of template (template ⊂ root harness)
 template/        CLAUDE.md  AGENTS.md  claude/…  codex/…  beads/beads.md  harness-manifest.txt  # payload (DOT-LESS) + update manifest
-vendor/codex-adapter/                             # bundled co-plugin (vendored source)
-test/            Dockerfile  run-tests.sh  from-zero.sh  README.md
+test/            Dockerfile  run-tests.sh  update-merge-test.sh  from-zero.sh  README.md
 ```
 
 `template/` is **not** auto-loaded by Claude Code (it isn't at the plugin root) —
@@ -94,7 +96,8 @@ copy, so the adopted repo still gets the required `.claude/` `.codex/` `.beads/`
 
 ## Maintaining the payload
 
-The orchestrators repo is the single source of truth for the harness. After
+The source harness repo (the checkout that owns the canonical `.claude`/`.codex`) is
+the single source of truth. After
 editing the canonical `.claude/`/`.codex/` there, regenerate the payload:
 
 ```bash

@@ -41,9 +41,6 @@ pair  commands/prepare-phases.md   skills/prepare-phases/SKILL.md
 pair  commands/run-phases.md       skills/run-phases/SKILL.md
 pair  commands/use-codex.md        skills/use-codex/SKILL.md
 
-# --- Same skill, but the SKILL file casing differs (.MD vs .md): compare bodies.
-body  skills/ak-guide/SKILL.MD  skills/ak-guide/SKILL.md
-
 # --- Claude-only: Codex expresses this wiring through config.toml + hooks.json.
 claude  settings.json
 
