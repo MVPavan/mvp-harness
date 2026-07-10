@@ -37,6 +37,12 @@ const KNOWN_APPROVALS = new Set(["untrusted", "on-failure", "on-request", "never
 // be mistaken for the id.
 const SESSION_ID_RE =
   /session id:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
+// Banner lines used to enrich the session footer with an audit trail of what
+// actually ran (`model: gpt-...`, `sandbox: read-only [...]`).
+const BANNER_MODEL_RE = /^model:\s*(\S+)/m;
+const BANNER_SANDBOX_RE = /^sandbox:\s*([^\n[]+)/m;
+// How much transcript to keep for failure diagnostics in quiet mode.
+const TRANSCRIPT_TAIL_LINES = 60;
 
 const HELP = `codex-run — call OpenAI Codex (gpt-5.x) via \`codex exec\`.
 
@@ -58,6 +64,10 @@ Options:
       --resume <id>      Continue a prior Codex session by id.
       --role <name>      Apply a role preset from roles/<name>.md (prompt + sandbox/effort/config).
       --json             Stream raw JSONL events instead of just the final answer.
+      --progress         Stream Codex's progress transcript live (default when stderr is a TTY).
+      --quiet            Suppress the transcript; print only the answer and a one-line session
+                         footer (default when stderr is NOT a TTY, e.g. under an agent). On
+                         failure, the last ${TRANSCRIPT_TAIL_LINES} transcript lines are still shown.
       --skip-git-check   Allow running outside a git repository.
   -h, --help             Show this help.
 
@@ -69,8 +79,9 @@ flags that exist only on plain \`codex exec\` (e.g. --add-dir) don't combine wit
 --review/--resume.
 
 With no inline prompt, the prompt is read from piped stdin; an inline prompt takes
-precedence and stdin is ignored. Codex streams progress to stderr and prints its
-final answer to stdout. Each call is independent — run several in parallel safely.`;
+precedence and stdin is ignored. Codex prints its final answer to stdout; progress
+goes to stderr only when streaming (see --progress/--quiet). Each call is
+independent — run several in parallel safely.`;
 
 function fail(msg) {
   process.stderr.write(`codex-run: ${msg}\n`);
@@ -92,6 +103,7 @@ function parseArgs(argv) {
     role: null,
     review: false,
     json: false,
+    progress: null,
     skipGitCheck: false,
     configs: [],
     passthrough: [],
@@ -164,6 +176,12 @@ function parseArgs(argv) {
         break;
       case "--json":
         opts.json = true;
+        break;
+      case "--progress":
+        opts.progress = true;
+        break;
+      case "--quiet":
+        opts.progress = false;
         break;
       case "--skip-git-check":
         opts.skipGitCheck = true;
@@ -363,11 +381,15 @@ async function main() {
   // `tail -f | codex-run "..."`) and stray pipe data can't contaminate the prompt.
   const forwardStdin = !hasInlinePrompt && pipedStdin;
   opts.forwardStdin = forwardStdin;
-  // Fail loud, not silent: an inline prompt (or role) wins over piped stdin by
-  // design — say so instead of quietly discarding whatever was piped in.
-  if (hasInlinePrompt && pipedStdin) {
-    warn("stdin is ignored because an inline prompt (or role) is present");
-  }
+  // Note: an inline prompt (or role) wins over piped stdin by design (see HELP).
+  // No warning here — agent harnesses routinely run commands with a pipe-like
+  // stdin that carries no data, which would make it fire on every call.
+
+  // Stream the progress transcript only when a human is watching (stderr is a
+  // TTY). Under an agent the transcript is pure context cost — suppress it and
+  // report a one-line audit footer instead, keeping a bounded tail for failure
+  // diagnostics. `--progress`/`--quiet` force either mode.
+  const streamProgress = opts.progress ?? process.stderr.isTTY === true;
   // A bad cwd makes spawn throw ENOENT before the executable is even resolved,
   // which the error handler below would misread as "codex not on PATH".
   if (opts.review && opts.cd && !fs.existsSync(opts.cd)) {
@@ -380,14 +402,27 @@ async function main() {
   });
 
   let sessionId = null;
+  let bannerModel = null;
+  let bannerSandbox = null;
   let scanBuffer = "";
+  let scanDone = false;
+  // Quiet mode keeps a bounded transcript tail for failure diagnostics.
+  let tailBuffer = "";
   child.stderr.on("data", (chunk) => {
-    process.stderr.write(chunk);
-    if (sessionId) return;
-    scanBuffer += chunk.toString("utf8");
-    const match = scanBuffer.match(SESSION_ID_RE);
-    if (match) {
-      sessionId = match[1];
+    const text = chunk.toString("utf8");
+    if (streamProgress) {
+      process.stderr.write(chunk);
+    } else {
+      tailBuffer += text;
+      if (tailBuffer.length > 65536) tailBuffer = tailBuffer.slice(-32768);
+    }
+    if (scanDone) return;
+    scanBuffer += text;
+    if (!sessionId) sessionId = scanBuffer.match(SESSION_ID_RE)?.[1] ?? null;
+    if (!bannerModel) bannerModel = scanBuffer.match(BANNER_MODEL_RE)?.[1] ?? null;
+    if (!bannerSandbox) bannerSandbox = scanBuffer.match(BANNER_SANDBOX_RE)?.[1]?.trim() ?? null;
+    if (sessionId && bannerModel && bannerSandbox) {
+      scanDone = true;
       scanBuffer = "";
       return;
     }
@@ -403,8 +438,19 @@ async function main() {
     fail(`failed to launch codex: ${err.message}`);
   });
   child.on("close", (code, signal) => {
+    const failed = signal !== null || (code !== null && code !== 0);
+    // In quiet mode the transcript was withheld; on failure it is the evidence.
+    if (!streamProgress && failed && tailBuffer.length > 0) {
+      const tail = tailBuffer.replace(/\n+$/, "").split("\n").slice(-TRANSCRIPT_TAIL_LINES).join("\n");
+      process.stderr.write(
+        `\n[codex-adapter] codex exited ${signal ? `on signal ${signal}` : `with code ${code}`}; transcript tail:\n${tail}\n`,
+      );
+    }
     if (sessionId && !opts.json) {
-      process.stderr.write(`\n[codex-adapter] session ${sessionId} — resume: --resume ${sessionId} "<next prompt>"\n`);
+      const meta = [bannerModel && `model ${bannerModel}`, bannerSandbox].filter(Boolean).join(", ");
+      process.stderr.write(
+        `\n[codex-adapter] session ${sessionId}${meta ? ` (${meta})` : ""} — resume: --resume ${sessionId} "<next prompt>"\n`,
+      );
     }
     if (signal) {
       process.stderr.write(`codex-run: codex terminated by signal ${signal}\n`);

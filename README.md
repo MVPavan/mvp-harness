@@ -8,7 +8,7 @@ A single Claude Code plugin **marketplace** bundling PavanMV's agent-harness plu
 | --- | --- | --- |
 | `mvp-plugin` | 0.1.0 | Copy a self-contained agent harness into any repo — rules, skills, agents, hooks, `CLAUDE.md`/`AGENTS.md`, beads tracking. `adopt` installs, `doctor` verifies, `update` re-syncs. |
 | `code-intel` | 0.1.0 | Graph-first code intelligence: serena & CBM MCP servers + ast-grep. Query the symbol graph before reading files to cut tokens on large repos. |
-| `codex-adapter` | 1.1.0 | Call OpenAI Codex (gpt-5.x) from Claude Code via `codex exec` — roles, native review, flag pass-through, true concurrency, no broker. |
+| `codex-adapter` | 1.2.0 | Call OpenAI Codex (gpt-5.x) from Claude Code via `codex exec` — roles, native review, flag pass-through, agent-quiet output, true concurrency, no broker. |
 
 ## Layout
 

@@ -98,6 +98,7 @@ node scripts/codex-run.mjs --json "Summarize the README"
 | `--resume <id>` | — | Continue a prior session by id |
 | `--role <name>` | — | Apply a role preset (see [Roles](#roles)) |
 | `--json` | — | Stream raw JSONL events |
+| `--progress` / `--quiet` | auto (TTY) | Force the progress transcript on/off (see [Reading the output](#reading-the-output)) |
 | `--skip-git-check` | — | Allow running outside a git repo |
 
 **Pass-through:** any option the runner doesn't recognize is forwarded verbatim to
@@ -133,22 +134,29 @@ runner's invoker as trusted.
 The two streams are kept strictly separate:
 
 - **stdout** — Codex's final answer, and nothing else.
-- **stderr** — the startup banner (including the `session id`), the live
-  progress transcript, tool-call traces, and the `[codex-adapter]` resume hint.
+- **stderr** — the `[codex-adapter] session <id> (model …, sandbox)` footer,
+  plus the live progress transcript when streaming.
 
-Pick the stream you want:
+Progress is **automatic**: when stderr is a TTY (a human watching) the live
+transcript streams through; when it is not (an agent, a pipe, CI) the transcript
+is suppressed — a Codex run can emit tens of thousands of transcript tokens for
+a few-hundred-token answer, which would otherwise land in the calling agent's
+context. On success a quiet run prints just the answer plus the one-line audit
+footer; on failure it prints the last 60 transcript lines for diagnosis. Force
+either mode with `--progress` / `--quiet`. There is no need for `2>/dev/null`.
+The full transcript is never lost — Codex persists every session, reachable via
+`--resume <id>` from the footer.
 
 | You want… | Do this |
 |-----------|---------|
-| Just the answer | read **stdout**, discard stderr: `node scripts/codex-run.mjs "…" 2>/dev/null` |
-| Answer + live progress (human) | run normally — progress on stderr, answer on stdout |
+| Just the answer + audit footer (agent default) | run under a pipe — quiet is automatic |
+| Answer + live progress (human) | run in a terminal, or force with `--progress` |
 | A machine-readable event stream | add `--json` and parse the final agent-message event |
 
-**Why the answer can look doubled:** in human mode `codex exec` echoes the agent
+**Why the answer can look doubled when streaming:** `codex exec` echoes the agent
 message in its stderr transcript (`codex\n<answer>`) *and* prints the final
-answer on stdout. If you merge the streams — a terminal, `2>&1`, or a tool that
-captures both — you see it twice. Keep the streams separate (or read stdout
-only) and the answer appears exactly once.
+answer on stdout. If you merge the streams (`2>&1`) while streaming, you see it
+twice. In quiet mode this can't happen.
 
 ## Roles
 
