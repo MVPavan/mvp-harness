@@ -23,11 +23,20 @@ Options:
 - `-s, --sandbox <m>`   `read-only` (default) | `workspace-write` | `danger-full-access`.
 - `-w, --writable`      Shortcut for `--sandbox workspace-write` (Codex may edit files in the working dir).
 - `-m, --model <id>`    Model id (omit to use the account default).
-- `-e, --effort <l>`    Reasoning effort: `minimal|low|medium|high|xhigh`.
-- `--resume <id>`       Continue a prior Codex session by id.
+- `-e, --effort <l>`    Reasoning effort: `low|medium|high|xhigh|max|ultra` (model-dependent; unknown values warn and forward).
+- `-c, --config <k=v>`  Extra Codex config override (repeatable).
+- `--review`            Native code-review harness (`codex exec review`). Target the diff with `--uncommitted`, `--base=<branch>`, or `--commit=<sha>` — or give custom instructions as the prompt instead (Codex rejects a prompt combined with a target flag).
+- `--resume <id>`       Continue a prior Codex session by id (not combinable with `--review`).
 - `--role <name>`       Apply a role preset — see **Roles** below.
 - `--json`              Stream raw JSONL events (progress + session id) instead of just the final answer.
 - `--skip-git-check`    Allow running outside a git repository.
+
+Any option the runner doesn't recognize is forwarded verbatim to `codex exec`
+(e.g. `--output-schema=schema.json`, `-o=answer.txt`, `--ephemeral`,
+`--add-dir=<dir>`). Use the `--flag=value` form for forwarded flags that take a
+value — a space-separated value would be read as prompt text. Forwarded flags land
+after the subcommand, so flags that exist only on plain `codex exec` (e.g.
+`--add-dir`) don't combine with `--review`/`--resume`.
 
 ## Roles
 

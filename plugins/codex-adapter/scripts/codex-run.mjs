@@ -12,8 +12,26 @@ import fs from "node:fs";
 import process from "node:process";
 
 const SANDBOX_MODES = new Set(["read-only", "workspace-write", "danger-full-access"]);
-const EFFORT_LEVELS = new Set(["minimal", "low", "medium", "high", "xhigh"]);
-const APPROVAL_POLICIES = new Set(["untrusted", "on-failure", "on-request", "never"]);
+// Codex spellings that change the sandbox or bypass approvals from the flag
+// level, where they outrank the runner's validated `-c sandbox_mode` override:
+// `--sandbox=<m>` / `-s<m>` / `-s=<m>` (native flag forms that dodge the exact-
+// token cases below), plus `--full-auto`, `--yolo`, and `--dangerously-bypass-*`
+// (hidden/dangerous aliases accepted by codex exec even though its --help
+// doesn't list them all). None of these may ride the pass-through lane.
+const SANDBOX_BYPASS_RE = /^(-s|--sandbox\b|--yolo\b|--full-auto\b|--dangerously-bypass)/;
+// Config keys that select or reshape the sandbox: the legacy `sandbox_mode` key
+// plus the permission-profile keys (`default_permissions`, `permissions.*`) that
+// supersede it in Codex's config resolver. Anchored form for --config / role
+// `config:` values; unanchored form for pass-through tokens, whose key can sit
+// after any flag spelling (`--config=...`, `-c...`).
+const SANDBOX_CONFIG_KEY_RE = /^\s*"?(sandbox_mode|default_permissions|permissions)"?\s*[.=[]/;
+const SANDBOX_CONFIG_TOKEN_RE = /"?(sandbox_mode|default_permissions|permissions)"?\s*[.=[]/;
+// Effort/approval values the current CLI documents. Unknown values warn but are
+// still forwarded: Codex silently ignores unrecognized config values, so hard-
+// failing here would block every new level the CLI ships (as happened when
+// gpt-5.6 added `max`/`ultra`), while forwarding silently would hide typos.
+const KNOWN_EFFORTS = new Set(["minimal", "low", "medium", "high", "xhigh", "max", "ultra"]);
+const KNOWN_APPROVALS = new Set(["untrusted", "on-failure", "on-request", "never"]);
 // Codex prints `session id: <uuid>` in its startup banner (on stderr). Match the
 // UUID shape (8-4-4-4-12) specifically so stray hex elsewhere on the banner can't
 // be mistaken for the id.
@@ -28,16 +46,27 @@ Usage:
 
 Options:
   -m, --model <id>       Model id (default: account/config default).
-  -e, --effort <level>   Reasoning effort: ${[...EFFORT_LEVELS].join(" | ")}.
+  -e, --effort <level>   Reasoning effort: ${[...KNOWN_EFFORTS].join(" | ")}
+                         (model-dependent; unknown values warn and are forwarded).
   -C, --cd <dir>         Working root for Codex (default: current directory).
   -s, --sandbox <mode>   ${[...SANDBOX_MODES].join(" | ")} (default: read-only).
   -w, --writable         Shortcut for --sandbox workspace-write (lets Codex edit files).
-  -a, --approval <pol>   Approval policy: ${[...APPROVAL_POLICIES].join(" | ")} (default: Codex's own).
+  -a, --approval <pol>   Approval policy: ${[...KNOWN_APPROVALS].join(" | ")} (default: Codex's own).
+  -c, --config <k=v>     Extra Codex config override (repeatable; passed through as -c).
+      --review           Run Codex's native code-review harness (\`codex exec review\`).
+                         Target the diff via forwarded flags: --uncommitted, --base=<branch>, --commit=<sha>.
       --resume <id>      Continue a prior Codex session by id.
       --role <name>      Apply a role preset from roles/<name>.md (prompt + sandbox/effort/config).
       --json             Stream raw JSONL events instead of just the final answer.
       --skip-git-check   Allow running outside a git repository.
   -h, --help             Show this help.
+
+Options the runner doesn't recognize are forwarded verbatim to \`codex exec\`
+(e.g. --output-schema=schema.json, -o=answer.txt, --ephemeral, --add-dir=<dir>).
+Use the --flag=value form for forwarded flags that take a value — a space-separated
+value would be read as prompt text. Forwarded flags land after the subcommand, so
+flags that exist only on plain \`codex exec\` (e.g. --add-dir) don't combine with
+--review/--resume.
 
 With no inline prompt, the prompt is read from piped stdin; an inline prompt takes
 precedence and stdin is ignored. Codex streams progress to stderr and prints its
@@ -46,6 +75,10 @@ final answer to stdout. Each call is independent — run several in parallel saf
 function fail(msg) {
   process.stderr.write(`codex-run: ${msg}\n`);
   process.exit(2);
+}
+
+function warn(msg) {
+  process.stderr.write(`codex-run: ${msg}\n`);
 }
 
 function parseArgs(argv) {
@@ -57,8 +90,11 @@ function parseArgs(argv) {
     approval: null,
     resume: null,
     role: null,
+    review: false,
     json: false,
     skipGitCheck: false,
+    configs: [],
+    passthrough: [],
     promptParts: [],
   };
   for (let i = 0; i < argv.length; i++) {
@@ -103,6 +139,23 @@ function parseArgs(argv) {
       case "--approval":
         opts.approval = next();
         break;
+      case "-c":
+      case "--config": {
+        const override = next();
+        if (!override.includes("=")) fail(`--config expects key=value (got '${override}')`);
+        // A -c placed after the runner's own sandbox override would win inside
+        // Codex, silently defeating the validated fail-closed sandbox — via the
+        // legacy key or the permission-profile keys that supersede it. Route all
+        // sandbox choices through -s/-w instead.
+        if (SANDBOX_CONFIG_KEY_RE.test(override)) {
+          fail(`sandbox/permission config must go through -s/--sandbox (or -w), not --config '${override}'`);
+        }
+        opts.configs.push(override);
+        break;
+      }
+      case "--review":
+        opts.review = true;
+        break;
       case "--resume":
         opts.resume = next();
         break;
@@ -120,43 +173,71 @@ function parseArgs(argv) {
         i = argv.length;
         break;
       default:
-        if (arg.startsWith("-") && arg !== "-") fail(`unknown option: ${arg}`);
+        if (arg.startsWith("-") && arg !== "-") {
+          // Not a runner option — forward it verbatim so new `codex exec` flags
+          // work without an adapter release. Single-token forwarding only:
+          // valued flags must use the --flag=value form, because a space-
+          // separated value would land in the prompt instead.
+          //
+          // Exception: any spelling that smuggles a sandbox or approvals
+          // escalation — a native flag form (see SANDBOX_BYPASS_RE) or a
+          // sandbox-shaping config override (`--config=sandbox_mode=...`,
+          // `-cdefault_permissions=...`) — would land after the runner's
+          // validated sandbox -c, or outrank it at the flag level, and win
+          // inside Codex.
+          if (SANDBOX_BYPASS_RE.test(arg) || SANDBOX_CONFIG_TOKEN_RE.test(arg)) {
+            fail(`use -s/--sandbox (or -w) to set the sandbox, not '${arg}'`);
+          }
+          warn(`forwarding unrecognized option '${arg}' to codex exec`);
+          opts.passthrough.push(arg);
+          break;
+        }
         opts.promptParts.push(arg);
     }
-  }
-  if (opts.sandbox !== null && !SANDBOX_MODES.has(opts.sandbox)) {
-    fail(`invalid --sandbox '${opts.sandbox}' (expected: ${[...SANDBOX_MODES].join(", ")})`);
-  }
-  if (opts.effort && !EFFORT_LEVELS.has(opts.effort)) {
-    fail(`invalid --effort '${opts.effort}' (expected: ${[...EFFORT_LEVELS].join(", ")})`);
-  }
-  if (opts.approval && !APPROVAL_POLICIES.has(opts.approval)) {
-    fail(`invalid --approval '${opts.approval}' (expected: ${[...APPROVAL_POLICIES].join(", ")})`);
   }
   return opts;
 }
 
 function buildCodexArgs(opts, prompt, roleConfigs = []) {
   const args = ["exec"];
-  // `resume <id>` puts the session id in the first positional slot; the prompt
+  // `review` runs Codex's native code-review harness; `resume <id>` continues a
+  // prior session. Both occupy the subcommand slot right after `exec`; the prompt
   // stays the trailing positional, so the flags in between are unambiguous.
-  if (opts.resume) args.push("resume", opts.resume);
-  // Drive sandbox/approval/effort via `-c key=value`: these overrides are valid
-  // on both `codex exec` and `codex exec resume`, whereas the `-s`/`-a`/`-C`
-  // flags are not all accepted by the resume subcommand.
+  if (opts.review) args.push("review");
+  else if (opts.resume) args.push("resume", opts.resume);
+  // Sandbox is enforced on two levels. The native `-s` flag is the strongest:
+  // it outranks every config override, including permission-profile keys
+  // (`default_permissions`) that supersede `sandbox_mode` in the config
+  // resolver — but only plain `codex exec` accepts it (`exec resume` /
+  // `exec review` don't). The `-c sandbox_mode=` override below is valid on
+  // all three and covers the subcommands.
+  if (!opts.resume && !opts.review) args.push("-s", opts.sandbox);
+  // Drive approval/effort via `-c key=value`: these overrides are valid on
+  // `codex exec` and its subcommands, whereas flags like `-a`/`-C` are not all
+  // accepted by `exec resume` / `exec review`.
   args.push("-c", `sandbox_mode=${opts.sandbox}`);
   if (opts.approval) args.push("-c", `approval_policy=${opts.approval}`);
   if (opts.effort) args.push("-c", `model_reasoning_effort=${opts.effort}`);
-  // Extra `-c` overrides contributed by a role (e.g. tools.web_search=true).
+  // Extra `-c` overrides: the role's first, then explicit --config flags, so a
+  // caller can override a role default (for the same key, the later -c wins).
   for (const override of roleConfigs) args.push("-c", override);
+  for (const override of opts.configs) args.push("-c", override);
   if (opts.model) args.push("-m", opts.model);
-  // --cd only applies to a fresh session; a resumed session keeps its own cwd.
-  if (opts.cd && !opts.resume) args.push("-C", opts.cd);
+  // --cd only applies to a fresh plain session: a resumed session keeps its own
+  // cwd, and `exec review` has no -C flag (the runner spawns in opts.cd instead).
+  if (opts.cd && !opts.resume && !opts.review) args.push("-C", opts.cd);
   if (opts.skipGitCheck) args.push("--skip-git-repo-check");
   if (opts.json) args.push("--json");
+  // Options the runner didn't recognize, forwarded verbatim (--flag=value form).
+  args.push(...opts.passthrough);
   // Only pass an inline prompt when we have one. With no inline prompt and piped
-  // stdin, Codex reads the prompt from stdin itself.
-  if (prompt) args.push(prompt);
+  // stdin, plain `codex exec` reads the prompt from stdin itself — but
+  // `exec review` only reads stdin when the positional is an explicit `-`.
+  // The `--` guarantees Codex parses the prompt as a positional: without it, a
+  // prompt starting with a dash (e.g. via the runner's own `--` delimiter)
+  // would be parsed as a Codex flag — an escalation vector.
+  if (prompt) args.push("--", prompt);
+  else if (opts.review && opts.forwardStdin) args.push("--", "-");
   return args;
 }
 
@@ -215,7 +296,16 @@ function loadRole(name) {
       const value = trimmed.slice(sep + 1).trim();
       if (key === "sandbox") role.sandbox = value;
       else if (key === "effort") role.effort = value;
-      else if (key === "config") role.configs.push(value);
+      else if (key === "config") {
+        // Role configs are emitted after the runner's validated sandbox -c and
+        // would win inside Codex — via the legacy key or the permission-profile
+        // keys. The `sandbox:` front-matter key is the legitimate channel (an
+        // explicit -s/-w flag still overrides it).
+        if (SANDBOX_CONFIG_KEY_RE.test(value)) {
+          fail(`role '${name}': set the sandbox via the 'sandbox:' front-matter key, not 'config: ${value}'`);
+        }
+        role.configs.push(value);
+      }
     }
   }
   if (!role.prompt) fail(`role '${name}' has an empty prompt body`);
@@ -236,19 +326,33 @@ async function main() {
   const inlinePrompt = promptSegments.join("\n\n");
   const hasInlinePrompt = inlinePrompt.trim().length > 0;
   const pipedStdin = stdinHasData();
-  if (!hasInlinePrompt && !pipedStdin) {
+  // `--review` may run bare: Codex's native review harness has its own default
+  // instructions; an inline prompt (or role) becomes custom review instructions.
+  if (!hasInlinePrompt && !pipedStdin && !opts.review) {
     fail("no prompt provided (pass it as an argument, pipe it via stdin, or use --role)");
+  }
+  if (opts.review && opts.resume) {
+    fail("--review starts a fresh review turn and cannot be combined with --resume");
   }
 
   // Resolve sandbox/effort: an explicit flag wins, else the role's default, else
   // the global default. Validate the merged result.
   opts.sandbox = opts.sandbox ?? role?.sandbox ?? "read-only";
+  // Sandbox stays hard-validated: Codex silently ignores unrecognized config
+  // values, so a typo here would fall back to the user's config.toml default —
+  // which may be workspace-write. Fail closed.
   if (!SANDBOX_MODES.has(opts.sandbox)) {
     fail(`invalid sandbox '${opts.sandbox}' (expected: ${[...SANDBOX_MODES].join(", ")})`);
   }
   opts.effort = opts.effort ?? role?.effort ?? null;
-  if (opts.effort && !EFFORT_LEVELS.has(opts.effort)) {
-    fail(`invalid effort '${opts.effort}' (expected: ${[...EFFORT_LEVELS].join(", ")})`);
+  // Effort/approval are warn-and-forward (see KNOWN_EFFORTS note above): unknown
+  // values still reach Codex, but Codex swallows bad ones silently, so the
+  // warning is the only signal a typo gets.
+  if (opts.effort && !KNOWN_EFFORTS.has(opts.effort)) {
+    warn(`effort '${opts.effort}' is not a known level (${[...KNOWN_EFFORTS].join(", ")}); forwarding as-is`);
+  }
+  if (opts.approval && !KNOWN_APPROVALS.has(opts.approval)) {
+    warn(`approval '${opts.approval}' is not a known policy (${[...KNOWN_APPROVALS].join(", ")}); forwarding as-is`);
   }
 
   // stdout stays clean (Codex's answer, or raw JSONL). stderr is piped so we can
@@ -258,8 +362,21 @@ async function main() {
   // stdin is ignored, so Codex can never block on a held-open descriptor (e.g.
   // `tail -f | codex-run "..."`) and stray pipe data can't contaminate the prompt.
   const forwardStdin = !hasInlinePrompt && pipedStdin;
+  opts.forwardStdin = forwardStdin;
+  // Fail loud, not silent: an inline prompt (or role) wins over piped stdin by
+  // design — say so instead of quietly discarding whatever was piped in.
+  if (hasInlinePrompt && pipedStdin) {
+    warn("stdin is ignored because an inline prompt (or role) is present");
+  }
+  // A bad cwd makes spawn throw ENOENT before the executable is even resolved,
+  // which the error handler below would misread as "codex not on PATH".
+  if (opts.review && opts.cd && !fs.existsSync(opts.cd)) {
+    fail(`--cd directory not found: ${opts.cd}`);
+  }
   const child = spawn("codex", buildCodexArgs(opts, hasInlinePrompt ? inlinePrompt : null, role?.configs ?? []), {
     stdio: [forwardStdin ? "inherit" : "ignore", "inherit", "pipe"],
+    // `exec review` has no -C flag; honor --cd there by spawning in that directory.
+    ...(opts.review && opts.cd ? { cwd: opts.cd } : {}),
   });
 
   let sessionId = null;
